@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
-import './App.css'
+"use client";
 
+import { useState } from 'react'
+import './App.css'
+import { useQuery } from '@tanstack/react-query';
 const BASE_URL = 'https://jsonplaceholder.typicode.com'
 
 interface Post {
@@ -8,61 +10,39 @@ interface Post {
   title: string;
 }
 
+
 function App() {
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState();
   const [page, setPage] = useState(0);
 
-  const abortControllerRef = useRef<AbortController | null>(null);
-
-  useEffect(() => {
-    const fetchPosts = async () => {
-      abortControllerRef.current?.abort();
-      abortControllerRef.current = new AbortController();
-      setIsLoading(true);
-
-      try {
-        const response = await fetch(`${BASE_URL}/posts?page=${page}`, {
-          signal: abortControllerRef.current?.signal,
-        });
-        const posts = await response.json() as Post[];
-        setPosts(posts);
-      } catch (e: any) {
-        if (e.name === "AbortError") {
-          console.log("aborted");
-          return;
-        }
-        setError(e);
-      } finally {
-        setIsLoading(false);
-      }
-
+  const {
+    data: posts,
+    isError,
+    isPending,
+  } = useQuery({
+    queryKey: ["posts", { page }],
+    queryFn: async () => {
+      const response = await fetch(`${BASE_URL}/posts?page=${page}`);
+      return (await response.json()) as Post[];
     }
-
-    fetchPosts();
-  }, [page]);
-
-
-  if (error) {
-    return <div>Something went wrong! Please try again.{error}</div>
-  }
+  })
 
   return (
     <div>
       <h1>Data Fetching in React</h1>
       <button onClick={() => setPage(page + 1)}>Next Page {page}</button>
-      {isLoading && (
+      <button onClick={() => setPage(page - 1)}>Prev Page {page}</button>
+      {isPending && (
         <div>Loading...</div>
       )}
-      {!isLoading && (
+      {!isPending && (
         <ul>
-          {posts.map((post) => {
+          {posts?.map((post) => {
             return <li key={post.id}>{post.title}</li>
           })}
         </ul>
       )}
     </div>
+
   )
 }
 
